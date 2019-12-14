@@ -1,4 +1,4 @@
-FROM webdevops/php-nginx:7.3
+FROM webdevops/php-nginx:7.4
 ARG APP_ENV=production
 ENV APP_ENV "$APP_ENV"
 ENV fpm.pool.clear_env no
