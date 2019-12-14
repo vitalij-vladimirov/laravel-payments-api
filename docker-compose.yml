@@ -1,0 +1,29 @@
+version: '3.7'
+services:
+  kernolab:
+    container_name: kernolab
+    build:
+      context: '.'
+      args:
+      - APP_ENV=development
+      - COMPOSER_NO_INTERACTION=0
+    image: kernolab
+    ports:
+    - 801:80
+    volumes:
+    - ./src:/app
+    environment:
+    - LOG_STDOUT=/dev/null
+    - LOG_STDERR=/dev/null
+  kernolab-db:
+    image: mysql:5.7
+    container_name: kernolab-db
+    environment:
+      MYSQL_DATABASE: kernolab
+      MYSQL_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: root
+      TZ: UTC
+    ports:
+      - 33061:3306
+    volumes:
+      - ./mysql:/var/lib/mysql:rw
