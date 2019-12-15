@@ -11,7 +11,7 @@ class ProviderSeeder extends Seeder
      */
     public function run()
     {
-        DB::table('provider')->insert([
+        DB::table('provider')->insertOrIgnore([
             [
                 'provider_key' => 'megacash',
                 'title' => 'Megacash',

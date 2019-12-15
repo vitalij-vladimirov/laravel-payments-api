@@ -17,7 +17,7 @@ class CreateProviderTable extends Migration
         Schema::create('provider', function (Blueprint $table) {
             $table->increments('id');
             $table->string('provider_key', 20)
-                ->index('key');
+                ->unique();
             $table->string('title', 50);
             $table->enum('status', [
                     ProviderService::STATUS_ACTIVE,
