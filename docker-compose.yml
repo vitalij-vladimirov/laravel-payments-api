@@ -15,7 +15,7 @@ services:
     environment:
     - LOG_STDOUT=/dev/null
     - LOG_STDERR=/dev/null
-    command: bash -c "composer update --lock --prefer-source && supervisord"
+    command: bash -c "composer update --lock --prefer-source && supervisord && php artisan migrate && php artisan db:seed"
   kernolab-db:
     image: mysql:5.7
     container_name: kernolab-db
