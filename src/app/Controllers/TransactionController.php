@@ -118,7 +118,7 @@ class TransactionController extends Controller
         /** @var array $output */
         $output = TransactionHelper::convertEntityToResponse($transaction);
 
-        return response()->json([$output]);
+        return response()->json($output);
     }
 
     /**
@@ -142,6 +142,6 @@ class TransactionController extends Controller
         /** @var array $output */
         $output = TransactionHelper::convertEntityToResponse($transaction);
 
-        return response()->json([$output]);
+        return response()->json($output);
     }
 }
