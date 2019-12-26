@@ -90,17 +90,12 @@ class TransactionRepository
 
     /**
      * @param int $transactionId
-     * @param int $userId
      * @param string $status
      * @return bool
      */
-    public static function updateTransactionStatus(
-        int $transactionId,
-        int $userId,
-        string $status
-    ): bool {
+    public static function updateTransactionStatus(int $transactionId, string $status): bool
+    {
         return TransactionModel::whereId($transactionId)
-            ->where('user_id', $userId)
             ->whereIn('status', self::ALLOWED_STATUS_CHANGING[$status])
             ->limit(1)
             ->update(['status' => $status]);
@@ -116,6 +111,10 @@ class TransactionRepository
             ->update($update);
     }
 
+    /**
+     * @param $transactionId
+     * @return TransactionEntity
+     */
     public static function getTransaction($transactionId): TransactionEntity
     {
         /** @var TransactionModel $transaction */

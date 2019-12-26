@@ -104,7 +104,6 @@ class TransactionService
         foreach ($approvedTransactions as $transaction) {
             TransactionRepository::updateTransactionStatus(
                 $transaction->id,
-                $transaction->userId,
                 self::STATUS_SUBMITTED
             );
 

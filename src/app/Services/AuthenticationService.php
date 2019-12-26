@@ -13,11 +13,10 @@ class AuthenticationService
     /**
      * This method is imitating 2FA check
      *
-     * @param int $userId
      * @param int $code
      * @return bool
      */
-    public static function authenticateTransaction(int $userId, int $code): bool
+    public static function authenticateTransaction(int $code): bool
     {
         if ($code === self::AUTH_CODE) {
             return true;

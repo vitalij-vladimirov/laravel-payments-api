@@ -22,25 +22,32 @@ class TransactionController extends Controller
 {
     private TransactionService $transactionService;
     private ProviderService $providerService;
+    private Request $request;
 
     /**
      * TransactionController constructor.
+     * @param Request $request
+     * @param TransactionService $transactionService
+     * @param ProviderService $providerService
      */
-    public function __construct()
-    {
-        $this->transactionService = new TransactionService();
-        $this->providerService = new ProviderService();
+    public function __construct(
+        Request $request,
+        TransactionService $transactionService,
+        ProviderService $providerService
+    ) {
+        $this->transactionService = $transactionService;
+        $this->providerService = $providerService;
+        $this->request = $request;
     }
 
     /**
-     * @param Request $input
      * @return JsonResponse
      */
-    public function setTransaction(Request $input): JsonResponse
+    public function setTransaction(): JsonResponse
     {
         try {
             // Set input data to Entity
-            $transactionInput = new TransactionInputEntity($input->post());
+            $transactionInput = new TransactionInputEntity($this->request->post());
         } catch (Exception $exception) {
             // Return error if input data is bad
             return response()->json([
@@ -76,18 +83,16 @@ class TransactionController extends Controller
         return response()->json($output);
     }
 
-    public function submitTransaction(Request $input): JsonResponse
+    /**
+     * @param int $transactionId
+     * @return JsonResponse
+     */
+    public function submitTransaction(int $transactionId): JsonResponse
     {
-        /** @var int $userId */
-        $userId = $input->post('user_id');
-
-        /** @var int $transactionId */
-        $transactionId = $input->post('transaction_id');
-
         /** @var int $code */
-        $code = $input->post('code');
+        $code = $this->request->post('code');
 
-        if (!AuthenticationService::authenticateTransaction($userId, $code)) {
+        if (!AuthenticationService::authenticateTransaction($code)) {
             // Return error on bad authentication
             return response()->json([
                     'error' => ErrorCodeRepository::getError(TransactionService::ERROR_BAD_AUTHENTICATION)
@@ -99,7 +104,6 @@ class TransactionController extends Controller
         /** @var bool $update */
         $update = TransactionRepository::updateTransactionStatus(
             $transactionId,
-            $userId,
             TransactionService::STATUS_APPROVED
         );
 
