@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Entities\ErrorCodeEntity;
 use App\Models\ErrorCodeModel;
+use App\Services\TransactionService;
 
 /**
  * Class ErrorCodeRepository
@@ -13,11 +14,12 @@ class ErrorCodeRepository
 {
     /**
      * @param string|null $code
+     * @param string|null $status
      * @return ErrorCodeEntity
      */
-    public static function getError(?string $code): ErrorCodeEntity
+    public static function getError(?string $code, string $status = null): ErrorCodeEntity
     {
-        if (empty($code)) {
+        if (empty($code) && $status !== TransactionService::STATUS_ERROR) {
             return new ErrorCodeEntity();
         }
 

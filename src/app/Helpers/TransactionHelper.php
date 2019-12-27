@@ -14,17 +14,6 @@ class TransactionHelper
      * @param TransactionEntity $transaction
      * @return array
      */
-    public static function convertEntityToInsert(TransactionEntity $transaction): array
-    {
-        /** @var array $ignore */
-        $ignore = ['id', 'error_message'];
-
-        return Converters::convertEntityToArray($transaction, $ignore);
-    }
-    /**
-     * @param TransactionEntity $transaction
-     * @return array
-     */
     public static function convertEntityToResponse(TransactionEntity $transaction): array
     {
         /** @var array $ignore */

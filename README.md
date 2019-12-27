@@ -16,9 +16,9 @@ For next launches type `docker-compose up -d` to run App in background. Full lau
 Short API documentation
 ---
 #### Set transaction
-URL: http://localhost:801/api/transaction
+URL: `http://localhost:801/api/transaction`
 
-Method: POST
+Method: `POST`
 
 ```
 Request:
@@ -49,15 +49,13 @@ Response:
 ```
 ---
 #### Submit (approve) transaction
-URL: http://localhost:801/api/transaction
+URL: `http://localhost:801/api/transaction/{transaction_id}/confirm`
 
-Method: PUT
+Method: `POST`
 
 ```
 Request:
 {
-    "user_id": 2,
-    "transaction_id": 1,
     "code": 111
 }
 ```
@@ -79,9 +77,9 @@ Response:
 ```
 ---
 #### Get transaction
-URL: http://localhost:801/api/transaction/100 - transaction id
+URL: `http://localhost:801/api/transaction/{transaction_id}`
 
-Method: GET
+Method: `GET`
 ```
 Response:
 {

@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Entities\ProviderEntity;
 use App\Entities\TransactionEntity;
 use App\Entities\TransactionInputEntity;
+use App\Models\ProviderModel;
 use App\Models\TransactionModel;
 use App\Repositories\ProviderRepository;
 use Illuminate\Support\Str;
@@ -22,10 +22,10 @@ class ProviderService
     const NON_EUR_PROVIDER  = 'supermoney';
 
     /**
-     * @param TransactionInputEntity $transaction
+     * @param TransactionModel $transaction
      * @return int|null
      */
-    public function findProvider(TransactionInputEntity $transaction): ?int
+    public function findProvider(TransactionModel $transaction): ?int
     {
         switch (strtolower($transaction->currency)) {
             case 'eur':
@@ -50,7 +50,7 @@ class ProviderService
      */
     public function processTransaction(TransactionEntity $transaction): ?string
     {
-        /** @var ProviderEntity $provider */
+        /** @var ProviderModel $provider */
         $provider = ProviderRepository::getProviderById($transaction->providerId);
 
         if ($provider->status !== ProviderService::STATUS_ACTIVE) {
@@ -60,7 +60,7 @@ class ProviderService
         /** @var string|null $providerResponse */
         $providerResponse = null;
 
-        switch ($provider->providerKey) {
+        switch ($provider->provider_key) {
             case self::EUR_PROVIDER:
                 $providerResponse = $this->processTransactionToMegacash($transaction);
                 break;

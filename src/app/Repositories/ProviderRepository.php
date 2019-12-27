@@ -2,7 +2,6 @@
 
 namespace App\Repositories;
 
-use App\Entities\ProviderEntity;
 use App\Models\ProviderModel;
 
 /**
@@ -14,9 +13,9 @@ class ProviderRepository
     /**
      * @param string $key
      * @param string|null $status
-     * @return ProviderEntity|null
+     * @return ProviderModel
      */
-    public static function getProviderByKey(string $key, string $status = null): ?ProviderEntity
+    public static function getProviderByKey(string $key, string $status = null): ProviderModel
     {
         $query = ProviderModel::whereProviderKey($key);
 
@@ -24,27 +23,16 @@ class ProviderRepository
             $query->where('status', $status);
         }
 
-        $provider = $query->first();
-
-        if (empty($provider->id)) {
-            return null;
-        }
-
-        return new ProviderEntity(
-            $provider->id,
-            $provider->provider_key,
-            $provider->title,
-            $provider->status
-        );
+        return $query->first();
     }
 
 
     /**
      * @param int $id
      * @param string|null $status
-     * @return ProviderEntity|null
+     * @return ProviderModel
      */
-    public static function getProviderById(int $id, string $status = null): ?ProviderEntity
+    public static function getProviderById(int $id, string $status = null): ProviderModel
     {
         /** @var ProviderModel $query */
         $query = ProviderModel::whereId($id);
@@ -53,17 +41,6 @@ class ProviderRepository
             $query->where('status', $status);
         }
 
-        $provider = $query->first();
-
-        if (empty($provider->id)) {
-            return null;
-        }
-
-        return new ProviderEntity(
-            $provider->id,
-            $provider->provider_key,
-            $provider->title,
-            $provider->status
-        );
+        return $query->first();
     }
 }

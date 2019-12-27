@@ -2,6 +2,7 @@
 
 namespace App\Repositories;
 
+use App\Entities\ErrorCodeEntity;
 use App\Entities\TransactionEntity;
 use App\Models\TransactionModel;
 use App\Services\TransactionService;
@@ -76,19 +77,6 @@ class TransactionRepository
     }
 
     /**
-     * @param array $input
-     * @return int|null
-     */
-    public static function insertTransaction(array $input): ?int
-    {
-        try {
-            return TransactionModel::insertGetId($input);
-        } catch (Exception $exception) {
-            return null;
-        }
-    }
-
-    /**
      * @param int $transactionId
      * @param string $status
      * @return bool
@@ -121,6 +109,12 @@ class TransactionRepository
         $transaction = TransactionModel::whereId($transactionId)
             ->first();
 
+        /** @var ErrorCodeEntity $error */
+        $error = ErrorCodeRepository::getError(
+            $transaction->error_code,
+            $transaction->status
+        );
+
         return new TransactionEntity(
             $transaction->id,
             $transaction->user_id,
@@ -133,8 +127,8 @@ class TransactionRepository
             $transaction->status,
             $transaction->provider_id,
             $transaction->provider_trn_id,
-            ErrorCodeRepository::getError($transaction->error_code)->code,
-            ErrorCodeRepository::getError($transaction->error_code)->message
+            $error->code,
+            $error->message
         );
     }
 
@@ -155,6 +149,12 @@ class TransactionRepository
         $transactions = [];
 
         foreach ($query as $transaction) {
+            /** @var ErrorCodeEntity $error */
+            $error = ErrorCodeRepository::getError(
+                $transaction->error_code,
+                $transaction->status
+            );
+
             $transactions[] = new TransactionEntity(
                 $transaction->id,
                 $transaction->user_id,
@@ -167,8 +167,8 @@ class TransactionRepository
                 $transaction->status,
                 $transaction->provider_id,
                 $transaction->provider_trn_id,
-                ErrorCodeRepository::getError($transaction->error_code)->code,
-                ErrorCodeRepository::getError($transaction->error_code)->message
+                $error->code,
+                $error->message
             );
         }
 

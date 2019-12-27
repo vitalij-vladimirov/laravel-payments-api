@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Entities\TransactionInputEntity;
 use App\Entities\TransactionEntity;
 use App\Helpers\TransactionHelper;
+use App\Models\TransactionModel;
 use App\Repositories\ErrorCodeRepository;
 use App\Repositories\TransactionRepository;
 use App\Services\AuthenticationService;
@@ -43,13 +44,13 @@ class TransactionController extends Controller
     /**
      * @return JsonResponse
      */
-    public function setTransaction(): JsonResponse
+    public function createTransaction(): JsonResponse
     {
-        try {
-            // Set input data to Entity
-            $transactionInput = new TransactionInputEntity($this->request->post());
-        } catch (Exception $exception) {
-            // Return error if input data is bad
+        /** @var array $input */
+        $input = $this->request->post();
+
+        // Check if transaction data is correct
+        if(!$this->transactionService->transactionIsValid($input)) {
             return response()->json([
                     'error' => ErrorCodeRepository::getError(TransactionService::ERROR_BAD_INPUT)
                         ->message
@@ -57,30 +58,20 @@ class TransactionController extends Controller
                 ->setStatusCode(400);
         }
 
-        /** @var int|null $provider */
-        $provider = $this->providerService->findProvider($transactionInput);
+        /** @var TransactionModel $transaction */
+        $transaction = $this->transactionService->fillModel($input);
 
-        /** @var TransactionEntity $transaction */
-        $transaction = $this->transactionService->setTransaction($transactionInput, $provider);
+        $transaction->provider_id = $this->providerService->findProvider($transaction);
+        $transaction->fee = $this->transactionService->getFee($transaction->user_id, $transaction->amount);
+        $transaction->amount += $transaction->fee;
+        $transaction->error_code = $this->transactionService->checkForErrors($transaction);
 
-        /** @var array $insert */
-        $insert = TransactionHelper::convertEntityToInsert($transaction);
-
-        $transaction->id = TransactionRepository::insertTransaction($insert);
-
-        if (empty($transaction->id)) {
-            // Return error if data could not be saved to DB
-            return response()->json([
-                    'error' => ErrorCodeRepository::getError(TransactionService::ERROR_BAD_INPUT)
-                        ->message
-                ])
-                ->setStatusCode(400);
-        }
+        $transaction->save();
 
         /** @var array $output */
         $output = TransactionHelper::convertEntityToResponse($transaction);
 
-        return response()->json($output);
+        return response()->json($transaction);
     }
 
     /**
