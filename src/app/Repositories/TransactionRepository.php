@@ -2,11 +2,8 @@
 
 namespace App\Repositories;
 
-use App\Entities\ErrorCodeEntity;
-use App\Entities\TransactionEntity;
 use App\Models\TransactionModel;
 use App\Services\TransactionService;
-use Exception;
 
 /**
  * Class TransactionRepository
@@ -15,18 +12,18 @@ use Exception;
 class TransactionRepository
 {
     const ALLOWED_STATUS_CHANGING = [
-        TransactionService::STATUS_APPROVED   => [
+        TransactionService::STATUS_CONFIRMED   => [
             TransactionService::STATUS_RECEIVED,
         ],
         TransactionService::STATUS_SUBMITTED  => [
-            TransactionService::STATUS_APPROVED,
+            TransactionService::STATUS_CONFIRMED,
         ],
         TransactionService::STATUS_COMPLETED  => [
             TransactionService::STATUS_SUBMITTED,
         ],
         TransactionService::STATUS_ERROR  => [
             TransactionService::STATUS_RECEIVED,
-            TransactionService::STATUS_APPROVED,
+            TransactionService::STATUS_CONFIRMED,
             TransactionService::STATUS_SUBMITTED,
         ]
     ];
@@ -53,10 +50,10 @@ class TransactionRepository
             $query->where('currency', $currency);
         }
 
-        $sum = $query->selectRaw('sum(amount + fee) as sum')
+        $totalAmount = $query->selectRaw('sum(amount + fee) as sum')
             ->first();
 
-        return $sum->sum ?? 0;
+        return $totalAmount->sum ?? 0;
     }
 
     /**
@@ -85,92 +82,45 @@ class TransactionRepository
     {
         return TransactionModel::whereId($transactionId)
             ->whereIn('status', self::ALLOWED_STATUS_CHANGING[$status])
-            ->limit(1)
             ->update(['status' => $status]);
     }
 
     /**
      * @param int $transactionId
      * @param array $update
+     * @return bool
      */
-    public static function updateTransaction(int $transactionId, array $update)
+    public static function updateTransaction(int $transactionId, array $update): bool
     {
-        TransactionModel::whereId($transactionId)
+        if (isset($update['status'])) {
+            return false;
+        }
+
+        return TransactionModel::whereId($transactionId)
             ->update($update);
     }
 
     /**
      * @param $transactionId
-     * @return TransactionEntity
+     * @return TransactionModel|null
      */
-    public static function getTransaction($transactionId): TransactionEntity
+    public static function getTransaction($transactionId): ?TransactionModel
     {
         /** @var TransactionModel $transaction */
         $transaction = TransactionModel::whereId($transactionId)
             ->first();
 
-        /** @var ErrorCodeEntity $error */
-        $error = ErrorCodeRepository::getError(
-            $transaction->error_code,
-            $transaction->status
-        );
-
-        return new TransactionEntity(
-            $transaction->id,
-            $transaction->user_id,
-            $transaction->details,
-            $transaction->receiver_account,
-            $transaction->receiver_name,
-            $transaction->amount,
-            $transaction->fee,
-            $transaction->currency,
-            $transaction->status,
-            $transaction->provider_id,
-            $transaction->provider_trn_id,
-            $error->code,
-            $error->message
-        );
+        return $transaction;
     }
 
     /**
-     * @return TransactionEntity[]
+     * @return TransactionModel[]
      */
     public static function getApprovedTransactions(): array
     {
-        /** @var TransactionModel[] $transaction */
-        $query = TransactionModel::whereStatus(TransactionService::STATUS_APPROVED)
+        /** @var TransactionModel[] $transactions */
+        $transactions = TransactionModel::whereStatus(TransactionService::STATUS_CONFIRMED)
             ->get();
-
-        if (count($query) === 0) {
-            return [];
-        }
-
-        /** @var TransactionEntity[] $transactions */
-        $transactions = [];
-
-        foreach ($query as $transaction) {
-            /** @var ErrorCodeEntity $error */
-            $error = ErrorCodeRepository::getError(
-                $transaction->error_code,
-                $transaction->status
-            );
-
-            $transactions[] = new TransactionEntity(
-                $transaction->id,
-                $transaction->user_id,
-                $transaction->details,
-                $transaction->receiver_account,
-                $transaction->receiver_name,
-                $transaction->amount,
-                $transaction->fee,
-                $transaction->currency,
-                $transaction->status,
-                $transaction->provider_id,
-                $transaction->provider_trn_id,
-                $error->code,
-                $error->message
-            );
-        }
 
         return $transactions;
     }

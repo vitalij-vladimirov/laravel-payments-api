@@ -2,8 +2,6 @@
 
 namespace App\Services;
 
-use App\Entities\TransactionEntity;
-use App\Entities\TransactionInputEntity;
 use App\Models\ProviderModel;
 use App\Models\TransactionModel;
 use App\Repositories\ProviderRepository;
@@ -23,35 +21,12 @@ class ProviderService
 
     /**
      * @param TransactionModel $transaction
-     * @return int|null
-     */
-    public function findProvider(TransactionModel $transaction): ?int
-    {
-        switch (strtolower($transaction->currency)) {
-            case 'eur':
-                $provider = ProviderRepository::getProviderByKey(
-                    self::EUR_PROVIDER,
-                    self::STATUS_ACTIVE
-                );
-                break;
-            default:
-                $provider = ProviderRepository::getProviderByKey(
-                    self::NON_EUR_PROVIDER,
-                    self::STATUS_ACTIVE
-                );
-        }
-
-        return $provider->id ?? null;
-    }
-
-    /**
-     * @param TransactionEntity $transaction
      * @return string|null
      */
-    public function processTransaction(TransactionEntity $transaction): ?string
+    public function processTransaction(TransactionModel $transaction): ?string
     {
         /** @var ProviderModel $provider */
-        $provider = ProviderRepository::getProviderById($transaction->providerId);
+        $provider = ProviderRepository::getProviderById($transaction->provider_id);
 
         if ($provider->status !== ProviderService::STATUS_ACTIVE) {
             return null;
@@ -72,7 +47,11 @@ class ProviderService
         return (string) $providerResponse;
     }
 
-    private function processTransactionToMegacash(TransactionEntity $transaction): string
+    /**
+     * @param TransactionModel $transaction
+     * @return string
+     */
+    private function processTransactionToMegacash(TransactionModel $transaction): string
     {
         /** @var string $trnId */
         $trnId = Str::random(20);
@@ -80,7 +59,11 @@ class ProviderService
         return $trnId;
     }
 
-    private function processTransactionToSupermoney(TransactionEntity $transaction): int
+    /**
+     * @param TransactionModel $transaction
+     * @return int
+     */
+    private function processTransactionToSupermoney(TransactionModel $transaction): int
     {
         /** @var int $currentMaxId */
         $currentMaxId = (int) TransactionModel::max('provider_trn_id') ?? 0;

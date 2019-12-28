@@ -14,9 +14,9 @@ class CreateErrorCodeTable extends Migration
     public function up()
     {
         Schema::create('error_code', function (Blueprint $table) {
-            $table->string('code', 20)
+            $table->string('error_code', 20)
                 ->unique();
-            $table->string('message', 50);
+            $table->string('error_message', 50);
         });
     }
 

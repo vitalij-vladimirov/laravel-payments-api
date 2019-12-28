@@ -32,7 +32,7 @@ class CreateTransactionTable extends Migration
                 ->comment('Provider responded transaction ID.');
             $table->enum('status', [
                     TransactionService::STATUS_RECEIVED,
-                    TransactionService::STATUS_APPROVED,
+                    TransactionService::STATUS_CONFIRMED,
                     TransactionService::STATUS_SUBMITTED,
                     TransactionService::STATUS_COMPLETED,
                     TransactionService::STATUS_ERROR,

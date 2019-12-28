@@ -70,7 +70,7 @@ Response:
     "amount": 900,
     "fee": 90,
     "currency": "eur",
-    "status": "approved",
+    "status": "confirmed",
     "error_code": null,
     "error_message": null
 }
@@ -90,7 +90,7 @@ Response:
     "amount": 900,
     "fee": 90,
     "currency": "eur",
-    "status": "approved",
+    "status": "confirmed",
     "error_code": null,
     "error_message": null
 }
