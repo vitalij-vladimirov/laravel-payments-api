@@ -19,6 +19,17 @@ class ProviderService
     const EUR_PROVIDER      = 'megacash';
     const NON_EUR_PROVIDER  = 'supermoney';
 
+    private ProviderRepository $providerRepository;
+
+    /**
+     * ProviderService constructor.
+     * @param ProviderRepository $providerRepository
+     */
+    public function __construct(ProviderRepository $providerRepository)
+    {
+        $this->providerRepository = $providerRepository;
+    }
+
     /**
      * @param TransactionModel $transaction
      * @return string|null
@@ -26,9 +37,9 @@ class ProviderService
     public function processTransaction(TransactionModel $transaction): ?string
     {
         /** @var ProviderModel $provider */
-        $provider = ProviderRepository::getProviderById($transaction->provider_id);
+        $provider = $this->providerRepository->getProviderById($transaction->provider_id);
 
-        if ($provider->status !== ProviderService::STATUS_ACTIVE) {
+        if ($provider->status !== self::STATUS_ACTIVE) {
             return null;
         }
 

@@ -6,7 +6,6 @@ use App\Models\TransactionModel;
 use App\Repositories\ErrorCodeRepository;
 use App\Repositories\TransactionRepository;
 use App\Services\AuthenticationService;
-use App\Services\ProviderService;
 use App\Services\TransactionService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -17,24 +16,32 @@ use Illuminate\Http\JsonResponse;
  */
 class TransactionController extends Controller
 {
-    private TransactionService $transactionService;
-    private ProviderService $providerService;
     private Request $request;
+    private TransactionService $transactionService;
+    private AuthenticationService $authenticationService;
+    private TransactionRepository $transactionRepository;
+    private ErrorCodeRepository $errorCodeRepository;
 
     /**
      * TransactionController constructor.
      * @param Request $request
      * @param TransactionService $transactionService
-     * @param ProviderService $providerService
+     * @param AuthenticationService $authenticationService
+     * @param TransactionRepository $transactionRepository
+     * @param ErrorCodeRepository $errorCodeRepository
      */
     public function __construct(
         Request $request,
         TransactionService $transactionService,
-        ProviderService $providerService
+        AuthenticationService $authenticationService,
+        TransactionRepository $transactionRepository,
+        ErrorCodeRepository $errorCodeRepository
     ) {
-        $this->transactionService = $transactionService;
-        $this->providerService = $providerService;
         $this->request = $request;
+        $this->transactionService = $transactionService;
+        $this->authenticationService = $authenticationService;
+        $this->transactionRepository = $transactionRepository;
+        $this->errorCodeRepository = $errorCodeRepository;
     }
 
     /**
@@ -47,8 +54,7 @@ class TransactionController extends Controller
 
         // Check if transaction data is correct
         if(!$this->transactionService->transactionIsValid($input)) {
-            return response()->json(ErrorCodeRepository::getError(TransactionService::ERROR_BAD_INPUT))
-                ->setStatusCode(400);
+            return response()->json($this->errorCodeRepository->getError(TransactionService::ERROR_BAD_INPUT));
         }
 
         /** @var TransactionModel $transaction */
@@ -64,31 +70,29 @@ class TransactionController extends Controller
      * @param int $transactionId
      * @return JsonResponse
      */
-    public function submitTransaction(int $transactionId): JsonResponse
+    public function confirmTransaction(int $transactionId): JsonResponse
     {
         /** @var int $code */
         $code = $this->request->post('code');
 
-        if (!AuthenticationService::authenticateTransaction($code)) {
+        if (!$this->authenticationService->authenticateTransaction($code)) {
             // Return error on bad authentication
-            return response()->json(ErrorCodeRepository::getError(TransactionService::ERROR_BAD_AUTHENTICATION))
-                ->setStatusCode(400);
+            return response()->json($this->errorCodeRepository->getError(TransactionService::ERROR_BAD_AUTHENTICATION));
         }
 
         /** @var bool $update */
-        $update = TransactionRepository::updateTransactionStatus(
+        $update = $this->transactionRepository->updateTransactionStatus(
             $transactionId,
             TransactionService::STATUS_CONFIRMED
         );
 
         if (!$update) {
             // Return error if transaction status was not updated
-            return response()->json(ErrorCodeRepository::getError(TransactionService::ERROR_NOT_FOUND))
-                ->setStatusCode(404);
+            return response()->json($this->errorCodeRepository->getError(TransactionService::ERROR_NOT_FOUND));
         }
 
         /** @var TransactionModel $transaction */
-        $transaction = TransactionRepository::getTransaction($transactionId);
+        $transaction = $this->transactionRepository->getTransaction($transactionId);
 
         /** @var array $output */
         $output = $this->transactionService->createTransactionResponse($transaction);
@@ -103,11 +107,10 @@ class TransactionController extends Controller
     public function getTransaction(int $transactionId): JsonResponse
     {
         /** @var TransactionModel $transaction */
-        $transaction = TransactionRepository::getTransaction($transactionId);
+        $transaction = $this->transactionRepository->getTransaction($transactionId);
 
         if (empty($transaction)) {
-            return response()->json(ErrorCodeRepository::getError(TransactionService::ERROR_NOT_FOUND))
-                ->setStatusCode(404);
+            return response()->json($this->errorCodeRepository->getError(TransactionService::ERROR_NOT_FOUND));
         }
 
         /** @var array $output */

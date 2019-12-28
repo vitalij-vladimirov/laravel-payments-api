@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\TransactionModel;
 use App\Services\TransactionService;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * Class TransactionRepository
@@ -34,7 +35,7 @@ class TransactionRepository
      * @param string|null $currency
      * @return float
      */
-    public static function getTransactionsAmountPerUser(
+    public function getTransactionsAmountPerUser(
         int $userId,
         ?int $interval,
         string $currency = null
@@ -61,7 +62,7 @@ class TransactionRepository
      * @param int|null $interval
      * @return int
      */
-    public static function getTransactionsCountPerUser(int $userId, int $interval = null): int
+    public function getTransactionsCountPerUser(int $userId, int $interval = null): int
     {
         $query = TransactionModel::whereUserId($userId)
             ->where('status', '<>', TransactionService::STATUS_ERROR);
@@ -78,7 +79,7 @@ class TransactionRepository
      * @param string $status
      * @return bool
      */
-    public static function updateTransactionStatus(int $transactionId, string $status): bool
+    public function updateTransactionStatus(int $transactionId, string $status): bool
     {
         return TransactionModel::whereId($transactionId)
             ->whereIn('status', self::ALLOWED_STATUS_CHANGING[$status])
@@ -90,21 +91,26 @@ class TransactionRepository
      * @param array $update
      * @return bool
      */
-    public static function updateTransaction(int $transactionId, array $update): bool
+    public function updateTransaction(int $transactionId, array $update): bool
     {
+        $updateQuery = TransactionModel::whereId($transactionId);
+
+        // Add extra query check in case if status is changing
         if (isset($update['status'])) {
-            return false;
+            /** @var string $newStatus */
+            $newStatus = $update['status'];
+
+            $updateQuery->whereIn('status', self::ALLOWED_STATUS_CHANGING[$newStatus]);
         }
 
-        return TransactionModel::whereId($transactionId)
-            ->update($update);
+        return $updateQuery->update($update);
     }
 
     /**
      * @param $transactionId
      * @return TransactionModel|null
      */
-    public static function getTransaction($transactionId): ?TransactionModel
+    public function getTransaction($transactionId): ?TransactionModel
     {
         /** @var TransactionModel $transaction */
         $transaction = TransactionModel::whereId($transactionId)
@@ -114,14 +120,11 @@ class TransactionRepository
     }
 
     /**
-     * @return TransactionModel[]
+     * @return Collection
      */
-    public static function getApprovedTransactions(): array
+    public function getConfirmedTransactions(): Collection
     {
-        /** @var TransactionModel[] $transactions */
-        $transactions = TransactionModel::whereStatus(TransactionService::STATUS_CONFIRMED)
+        return TransactionModel::whereStatus(TransactionService::STATUS_CONFIRMED)
             ->get();
-
-        return $transactions;
     }
 }

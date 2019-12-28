@@ -16,7 +16,7 @@ class AuthenticationService
      * @param int $code
      * @return bool
      */
-    public static function authenticateTransaction(int $code): bool
+    public function authenticateTransaction(int $code): bool
     {
         if ($code === self::AUTH_CODE) {
             return true;

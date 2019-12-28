@@ -15,7 +15,7 @@ class ProviderRepository
      * @param string|null $status
      * @return ProviderModel
      */
-    public static function getProviderByKey(string $key, string $status = null): ProviderModel
+    public function getProviderByKey(string $key, string $status = null): ProviderModel
     {
         $query = ProviderModel::whereProviderKey($key);
 
@@ -26,13 +26,12 @@ class ProviderRepository
         return $query->first();
     }
 
-
     /**
      * @param int $id
      * @param string|null $status
      * @return ProviderModel
      */
-    public static function getProviderById(int $id, string $status = null): ProviderModel
+    public function getProviderById(int $id, string $status = null): ProviderModel
     {
         /** @var ProviderModel $query */
         $query = ProviderModel::whereId($id);

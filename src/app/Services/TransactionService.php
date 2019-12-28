@@ -37,6 +37,30 @@ class TransactionService
     const ERROR_BAD_AUTHENTICATION  = 'bad_authentication';
     const ERROR_NOT_FOUND           = 'not_found';
 
+    private ProviderService $providerService;
+    private TransactionRepository $transactionRepository;
+    private ErrorCodeRepository $errorCodeRepository;
+    private ProviderRepository $providerRepository;
+
+    /**
+     * TransactionService constructor.
+     * @param ProviderService $providerService
+     * @param TransactionRepository $transactionRepository
+     * @param ErrorCodeRepository $errorCodeRepository
+     * @param ProviderRepository $providerRepository
+     */
+    public function __construct(
+        ProviderService $providerService,
+        TransactionRepository $transactionRepository,
+        ErrorCodeRepository $errorCodeRepository,
+        ProviderRepository $providerRepository
+    ) {
+        $this->providerService = $providerService;
+        $this->transactionRepository = $transactionRepository;
+        $this->errorCodeRepository = $errorCodeRepository;
+        $this->providerRepository = $providerRepository;
+    }
+
     /**
      * @param array $input
      * @return TransactionModel
@@ -52,51 +76,14 @@ class TransactionService
         $transaction->receiver_name = $input['receiver_name'];
         $transaction->amount = $input['amount'];
         $transaction->currency = $input['currency'];
-        $transaction->status = self::STATUS_RECEIVED;
         $transaction->provider_id = $this->findProvider($transaction);
         $transaction->fee = $this->countFee($transaction);
         $transaction->error_code = $this->checkForErrors($transaction);
+        $transaction->status = empty($transaction->error_code) ? self::STATUS_RECEIVED : self::STATUS_ERROR;
 
         $transaction->save();
 
         return $transaction;
-    }
-
-    public function processApprovedTransactions()
-    {
-        /** @var TransactionModel[] $approvedTransactions */
-        $approvedTransactions = TransactionRepository::getApprovedTransactions();
-
-        if(count($approvedTransactions) === 0) {
-            return;
-        }
-
-        /** @var ProviderService $providerService */
-        $providerService = new ProviderService();
-
-        foreach ($approvedTransactions as $transaction) {
-            TransactionRepository::updateTransactionStatus(
-                $transaction->id,
-                self::STATUS_SUBMITTED
-            );
-
-            /** @var string|null $providerTransactionId */
-            $providerTransactionId = $providerService->processTransaction($transaction);
-
-            if (empty($providerTransactionId)) {
-                TransactionRepository::updateTransaction($transaction->id, [
-                    'error_code' => self::ERROR_PROVIDER_NOT_FOUND,
-                    'status' => self::STATUS_ERROR
-                ]);
-
-                continue;
-            }
-
-            TransactionRepository::updateTransaction($transaction->id, [
-                'provider_trn_id' => $providerTransactionId,
-                'status' => self::STATUS_COMPLETED
-            ]);
-        }
     }
 
     /**
@@ -127,7 +114,7 @@ class TransactionService
     public function createTransactionResponse(TransactionModel $transaction): array
     {
         /** @var ErrorCodeModel $error */
-        $error = ErrorCodeRepository::getError($transaction->error_code);
+        $error = $this->errorCodeRepository->getError($transaction->error_code);
 
         /** @var array $response */
         $response = [
@@ -146,6 +133,40 @@ class TransactionService
         return $response;
     }
 
+    public function processConfirmedTransactions()
+    {
+        /** @var TransactionModel[] $approvedTransactions */
+        $approvedTransactions = $this->transactionRepository->getConfirmedTransactions();
+
+        if(count($approvedTransactions) === 0) {
+            return;
+        }
+
+        foreach ($approvedTransactions as $transaction) {
+            $this->transactionRepository->updateTransactionStatus(
+                $transaction->id,
+                self::STATUS_SUBMITTED
+            );
+
+            /** @var string|null $providerTransactionId */
+            $providerTransactionId = $this->providerService->processTransaction($transaction);
+
+            if (empty($providerTransactionId)) {
+                $this->transactionRepository->updateTransaction($transaction->id, [
+                    'error_code' => self::ERROR_PROVIDER_NOT_FOUND,
+                    'status' => self::STATUS_ERROR
+                ]);
+
+                continue;
+            }
+
+            $this->transactionRepository->updateTransaction($transaction->id, [
+                'provider_trn_id' => $providerTransactionId,
+                'status' => self::STATUS_COMPLETED
+            ]);
+        }
+    }
+
     /**
      * @param TransactionModel $transaction
      * @return int|null
@@ -154,13 +175,13 @@ class TransactionService
     {
         switch (strtolower($transaction->currency)) {
             case 'eur':
-                $provider = ProviderRepository::getProviderByKey(
+                $provider = $this->providerRepository->getProviderByKey(
                     ProviderService::EUR_PROVIDER,
                     ProviderService::STATUS_ACTIVE
                 );
                 break;
             default:
-                $provider = ProviderRepository::getProviderByKey(
+                $provider = $this->providerRepository->getProviderByKey(
                     ProviderService::NON_EUR_PROVIDER,
                     ProviderService::STATUS_ACTIVE
                 );
@@ -171,33 +192,12 @@ class TransactionService
 
     /**
      * @param TransactionModel $transaction
-     * @return string|null
-     */
-    private function checkForErrors(TransactionModel $transaction): ?string
-    {
-        if (empty($transaction->provider_id)) {
-            return ErrorCodeRepository::getError(self::ERROR_PROVIDER_NOT_FOUND)->error_code;
-        }
-
-        if ($this->totalAmountLimitReached($transaction->user_id, $transaction->amount, $transaction->currency)) {
-            return ErrorCodeRepository::getError(self::ERROR_TOTAL_LIMIT)->error_code;
-        }
-
-        if ($this->hourlyLimitReached($transaction->user_id)) {
-            return ErrorCodeRepository::getError(self::ERROR_HOUR_LIMIT)->error_code;
-        }
-
-        return null;
-    }
-
-    /**
-     * @param TransactionModel $transaction
      * @return float
      */
     private function countFee(TransactionModel $transaction): float
     {
         /** @var float $dailyAmountSum */
-        $dailyAmountSum = TransactionRepository::getTransactionsAmountPerUser(
+        $dailyAmountSum = $this->transactionRepository->getTransactionsAmountPerUser(
             $transaction->user_id,
             self::TRN_FEE_PERIOD
         );
@@ -212,21 +212,43 @@ class TransactionService
     }
 
     /**
-     * @param int $userId
-     * @param float $transactionAmount
-     * @param string $currency
+     * @param TransactionModel $transaction
+     * @return string|null
+     */
+    private function checkForErrors(TransactionModel $transaction): ?string
+    {
+        if (empty($transaction->provider_id)) {
+            return $this->errorCodeRepository->getError(self::ERROR_PROVIDER_NOT_FOUND)->error_code;
+        }
+
+        if ($this->totalAmountLimitReached($transaction)) {
+            return $this->errorCodeRepository->getError(self::ERROR_TOTAL_LIMIT)->error_code;
+        }
+
+        if ($this->hourlyLimitReached($transaction->user_id)) {
+            return $this->errorCodeRepository->getError(self::ERROR_HOUR_LIMIT)->error_code;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param TransactionModel $transaction
      * @return bool
      */
-    private function totalAmountLimitReached(int $userId, float $transactionAmount, string $currency): bool
+    private function totalAmountLimitReached(TransactionModel $transaction): bool
     {
-        /** @var float $totalAmountSum */
-        $totalAmountSum = TransactionRepository::getTransactionsAmountPerUser(
-            $userId,
+        /** @var float $totalAmount */
+        $totalAmount = $this->transactionRepository->getTransactionsAmountPerUser(
+            $transaction->user_id,
             null,
-            $currency
+            $transaction->currency
         );
 
-        return ($totalAmountSum + $transactionAmount) > self::TRN_TOTAL_LIMIT;
+        /** @var float $totalAmountSum */
+        $totalAmountSum = $totalAmount + $transaction->amount + $transaction->fee;
+
+        return $totalAmountSum > self::TRN_TOTAL_LIMIT;
     }
 
     /**
@@ -236,7 +258,7 @@ class TransactionService
     private function hourlyLimitReached(int $userId): bool
     {
         /** @var float $totalTransactionsCount */
-        $lastHourTransactionsCount = TransactionRepository::getTransactionsCountPerUser(
+        $lastHourTransactionsCount = $this->transactionRepository->getTransactionsCountPerUser(
             $userId,
             self::TRN_TIME_LIMIT
         );

@@ -16,7 +16,7 @@ class ErrorCodeRepository
      * @param string|null $status
      * @return ErrorCodeModel
      */
-    public static function getError(?string $code, string $status = null): ErrorCodeModel
+    public function getError(?string $code, string $status = null): ErrorCodeModel
     {
         if (empty($code) && $status !== TransactionService::STATUS_ERROR) {
             return new ErrorCodeModel();
