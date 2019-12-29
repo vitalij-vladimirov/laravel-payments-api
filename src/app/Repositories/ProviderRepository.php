@@ -13,9 +13,9 @@ class ProviderRepository
     /**
      * @param string $key
      * @param string|null $status
-     * @return ProviderModel
+     * @return ProviderModel|null
      */
-    public function getProviderByKey(string $key, string $status = null): ProviderModel
+    public function getProviderByKey(string $key, string $status = null): ?ProviderModel
     {
         $query = ProviderModel::whereProviderKey($key);
 

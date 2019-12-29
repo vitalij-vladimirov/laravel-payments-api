@@ -23,11 +23,11 @@ Method: `POST`
 ```
 Request:
 {
-    "user_id": 2,
-    "details": "Transaction number two",
-    "receiver_account": "LT165134865135165135106",
-    "receiver_name": "Someone Somewhere",
-    "amount": 900,
+    "user_id": 1,
+    "details": "Test transaction",
+    "receiver_account": "LT000000000000000001",
+    "receiver_name": "John Doe",
+    "amount": 100,
     "currency": "eur"
  }
 ```
@@ -36,15 +36,23 @@ Request:
 Response:
 {
     "transaction_id": 1,
-    "details": "Transaction number two",
-    "receiver_account": "LT165134865135165135106",
-    "receiver_name": "Someone Somewhere",
-    "amount": 900,
-    "fee": 90,
+    "details": "Test transaction",
+    "receiver_account": "LT000000000000000001",
+    "receiver_name": "John Doe",
+    "amount": 100,
+    "fee": 10,
     "currency": "eur",
     "status": "received",
     "error_code": null,
     "error_message": null
+}
+```
+
+```
+Critical error Response:
+{
+    "error_code": "bad_input",
+    "error_message": "Bad input data"
 }
 ```
 ---
@@ -64,11 +72,11 @@ Request:
 Response:
 {
     "transaction_id": 1,
-    "details": "Transaction number two",
-    "receiver_account": "LT165134865135165135106",
-    "receiver_name": "Someone Somewhere",
-    "amount": 900,
-    "fee": 90,
+    "details": "Test transaction",
+    "receiver_account": "LT000000000000000001",
+    "receiver_name": "John Doe",
+    "amount": 100,
+    "fee": 10,
     "currency": "eur",
     "status": "confirmed",
     "error_code": null,
@@ -83,17 +91,23 @@ Method: `GET`
 ```
 Response:
 {
-    "transaction_id": 100,
-    "details": "Transaction number two",
-    "receiver_account": "LT165134865135165135106",
-    "receiver_name": "Someone Somewhere",
-    "amount": 900,
-    "fee": 90,
+    "transaction_id": 1,
+    "details": "Test transaction",
+    "receiver_account": "LT000000000000000001",
+    "receiver_name": "John Doe",
+    "amount": 100,
+    "fee": 10,
     "currency": "eur",
-    "status": "confirmed",
+    "status": "completed",
     "error_code": null,
     "error_message": null
 }
 ```
 
 Postman Examples included to project as `Kernolab.postman_collection.json`.
+
+---
+PhpUnit testing
+---
+1. `docker exec -it kernolab bash` - login to docker container
+2. `vendor/bin/phpunit` - run Features tests

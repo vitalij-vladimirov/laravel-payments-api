@@ -18,7 +18,7 @@ class ErrorCodeSeeder extends Seeder
                 'error_message' => 'Bad input data',
             ],[
                 'error_code'    => TransactionService::ERROR_PROVIDER_NOT_FOUND,
-                'error_message' => 'Internal error: provider no found or disabled',
+                'error_message' => 'Internal error: provider not found or disabled',
             ],[
                 'error_code'    => TransactionService::ERROR_TOTAL_LIMIT,
                 'error_message' => 'Total user limit 1000 of current amount is reached',
