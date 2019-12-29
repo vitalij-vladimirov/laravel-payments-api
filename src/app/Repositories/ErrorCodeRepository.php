@@ -22,11 +22,12 @@ class ErrorCodeRepository
             return new ErrorCodeModel();
         }
 
-        /** @var ErrorCodeModel $error */
+        /** @var ErrorCodeModel|null $error */
         $error = ErrorCodeModel::whereErrorCode($code)
             ->first();
 
         if (empty($error->error_message)) {
+            $error = new ErrorCodeModel();
             $error->error_code = 'unknown';
             $error->error_message = 'Unknown error';
         }

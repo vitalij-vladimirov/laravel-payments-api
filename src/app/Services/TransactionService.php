@@ -113,7 +113,7 @@ class TransactionService
     public function createTransactionResponse(TransactionModel $transaction): array
     {
         /** @var ErrorCodeModel $error */
-        $error = $this->errorCodeRepository->getError($transaction->error_code);
+        $error = $this->errorCodeRepository->getError($transaction->error_code, $transaction->status);
 
         /** @var array $response */
         $response = [
