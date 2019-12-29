@@ -53,6 +53,9 @@ class TransactionModel extends Model
      */
     public $timestamps = true;
 
+    /**
+     * @var string[]
+     */
     protected $fillable = [
         'user_id',
         'details',

@@ -36,8 +36,7 @@ class CreateTransactionTable extends Migration
                     TransactionService::STATUS_SUBMITTED,
                     TransactionService::STATUS_COMPLETED,
                     TransactionService::STATUS_ERROR,
-                ])
-                ->default(TransactionService::STATUS_RECEIVED);
+                ]);
             $table->string('error_code', 20)
                 ->nullable()
                 ->comment('In case of error only.');

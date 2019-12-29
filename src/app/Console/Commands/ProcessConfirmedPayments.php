@@ -25,6 +25,7 @@ class ProcessConfirmedPayments extends Command
     public function __construct(TransactionService $transactionService)
     {
         parent::__construct();
+
         $this->transactionService = $transactionService;
     }
 

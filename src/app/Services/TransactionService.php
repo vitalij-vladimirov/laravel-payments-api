@@ -3,11 +3,14 @@
 namespace App\Services;
 
 use App\Models\ErrorCodeModel;
+use App\Models\ProviderModel;
 use App\Models\TransactionModel;
 use App\Repositories\ErrorCodeRepository;
 use App\Repositories\ProviderRepository;
 use App\Repositories\TransactionRepository;
+use App\Services\Providers\ProviderInterface;
 use Illuminate\Support\Facades\Validator;
+use App;
 
 /**
  * Class TransactionService
@@ -37,25 +40,21 @@ class TransactionService
     const ERROR_BAD_AUTHENTICATION  = 'bad_authentication';
     const ERROR_NOT_FOUND           = 'not_found';
 
-    private ProviderService $providerService;
     private TransactionRepository $transactionRepository;
     private ErrorCodeRepository $errorCodeRepository;
     private ProviderRepository $providerRepository;
 
     /**
      * TransactionService constructor.
-     * @param ProviderService $providerService
      * @param TransactionRepository $transactionRepository
      * @param ErrorCodeRepository $errorCodeRepository
      * @param ProviderRepository $providerRepository
      */
     public function __construct(
-        ProviderService $providerService,
         TransactionRepository $transactionRepository,
         ErrorCodeRepository $errorCodeRepository,
         ProviderRepository $providerRepository
     ) {
-        $this->providerService = $providerService;
         $this->transactionRepository = $transactionRepository;
         $this->errorCodeRepository = $errorCodeRepository;
         $this->providerRepository = $providerRepository;
@@ -133,7 +132,7 @@ class TransactionService
         return $response;
     }
 
-    public function processConfirmedTransactions()
+    public function processConfirmedTransactions(): void
     {
         /** @var TransactionModel[] $approvedTransactions */
         $approvedTransactions = $this->transactionRepository->getConfirmedTransactions();
@@ -148,10 +147,13 @@ class TransactionService
                 self::STATUS_SUBMITTED
             );
 
-            /** @var string|null $providerTransactionId */
-            $providerTransactionId = $this->providerService->processTransaction($transaction);
+            /** @var ProviderModel $provider */
+            $provider = $this->providerRepository->getProviderById(
+                $transaction->provider_id,
+                ProviderInterface::STATUS_ACTIVE
+            );
 
-            if (empty($providerTransactionId)) {
+            if (empty($provider)) {
                 $this->transactionRepository->updateTransaction($transaction->id, [
                     'error_code' => self::ERROR_PROVIDER_NOT_FOUND,
                     'status' => self::STATUS_ERROR
@@ -159,6 +161,9 @@ class TransactionService
 
                 continue;
             }
+
+            /** @var string|null $providerTransactionId */
+            $providerTransactionId = $this->processTransactionToProvider($transaction, $provider);
 
             $this->transactionRepository->updateTransaction($transaction->id, [
                 'provider_trn_id' => $providerTransactionId,
@@ -176,14 +181,14 @@ class TransactionService
         switch (strtolower($transaction->currency)) {
             case 'eur':
                 $provider = $this->providerRepository->getProviderByKey(
-                    ProviderService::EUR_PROVIDER,
-                    ProviderService::STATUS_ACTIVE
+                    ProviderInterface::EUR_PROVIDER,
+                    ProviderInterface::STATUS_ACTIVE
                 );
                 break;
             default:
                 $provider = $this->providerRepository->getProviderByKey(
-                    ProviderService::NON_EUR_PROVIDER,
-                    ProviderService::STATUS_ACTIVE
+                    ProviderInterface::NON_EUR_PROVIDER,
+                    ProviderInterface::STATUS_ACTIVE
                 );
         }
 
@@ -264,5 +269,25 @@ class TransactionService
         );
 
         return $lastHourTransactionsCount >= self::TRN_MAX;
+    }
+
+    /**
+     * @param TransactionModel $transaction
+     * @param ProviderModel $provider
+     * @return string
+     */
+    private function processTransactionToProvider(
+        TransactionModel $transaction,
+        ProviderModel $provider
+    ): string {
+        App::bind('ProviderInterface', 'App\Services\Providers\\' . $provider->provider_key . 'Service');
+
+        /** @var ProviderInterface $providerInterface */
+        $providerInterface = App::make('ProviderInterface');
+
+        /** @var string|null $providerTransactionId */
+        $providerTransactionId = $providerInterface->processTransaction($transaction);
+
+        return $providerTransactionId;
     }
 }

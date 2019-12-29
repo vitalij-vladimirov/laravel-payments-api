@@ -107,10 +107,10 @@ class TransactionRepository
     }
 
     /**
-     * @param $transactionId
+     * @param int $transactionId
      * @return TransactionModel|null
      */
-    public function getTransaction($transactionId): ?TransactionModel
+    public function getTransaction(int $transactionId): ?TransactionModel
     {
         /** @var TransactionModel $transaction */
         $transaction = TransactionModel::whereId($transactionId)
