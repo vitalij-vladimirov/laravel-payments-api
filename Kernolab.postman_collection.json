@@ -1,12 +1,12 @@
 {
 	"info": {
-		"_postman_id": "492a71da-810b-4d7d-af31-4b04637f1804",
+		"_postman_id": "7aab0445-3717-4211-b5f0-8586b1cecb5a",
 		"name": "Kernolab test",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
 		{
-			"name": "New Transaction",
+			"name": "Create Transaction",
 			"request": {
 				"auth": {
 					"type": "noauth"
@@ -22,7 +22,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n\t\"user_id\": 1,\n\t\"details\": \"Transaction number one\",\n\t\"receiver_account\": \"12345\",\n\t\"receiver_name\": \"test\",\n\t\"amount\": 45.87,\n\t\"currency\": \"eur\"\n}",
+					"raw": "{\n\t\"user_id\": 10,\n\t\"details\": \"Test transaction\",\n\t\"receiver_account\": \"LT000000000000000001\",\n\t\"receiver_name\": \"John Doe\",\n\t\"amount\": 45,\n\t\"currency\": \"eur\"\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -45,12 +45,12 @@
 			"response": []
 		},
 		{
-			"name": "Submit Transaction",
+			"name": "Confirm Transaction",
 			"request": {
 				"auth": {
 					"type": "noauth"
 				},
-				"method": "PUT",
+				"method": "POST",
 				"header": [
 					{
 						"key": "Content-Type",
@@ -61,7 +61,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n\t\"user_id\": 1,\n\t\"transaction_id\": 1,\n\t\"code\": 111\n}",
+					"raw": "{\n\t\"code\": 111\n}",
 					"options": {
 						"raw": {
 							"language": "json"
@@ -69,7 +69,7 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:801/api/transaction",
+					"raw": "http://localhost:801/api/transaction/1/confirm",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -77,7 +77,9 @@
 					"port": "801",
 					"path": [
 						"api",
-						"transaction"
+						"transaction",
+						"1",
+						"confirm"
 					]
 				}
 			},
@@ -111,7 +113,7 @@
 					}
 				},
 				"url": {
-					"raw": "http://localhost:801/api/transaction/3",
+					"raw": "http://localhost:801/api/transaction/1",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -120,11 +122,33 @@
 					"path": [
 						"api",
 						"transaction",
-						"3"
+						"1"
 					]
 				}
 			},
 			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"id": "921ba847-9c83-471b-a7ea-844b738e8f4d",
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"id": "5c36876b-03ec-4d5c-bcdc-72e85de9acd1",
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
 		}
 	],
 	"protocolProfileBehavior": {}

@@ -2,8 +2,8 @@
 
 namespace App\Repositories;
 
-use App\Entities\ErrorCodeEntity;
 use App\Models\ErrorCodeModel;
+use App\Services\TransactionService;
 
 /**
  * Class ErrorCodeRepository
@@ -13,28 +13,25 @@ class ErrorCodeRepository
 {
     /**
      * @param string|null $code
-     * @return ErrorCodeEntity
+     * @param string|null $status
+     * @return ErrorCodeModel
      */
-    public static function getError(?string $code): ErrorCodeEntity
+    public function getError(?string $code, string $status = null): ErrorCodeModel
     {
-        if (empty($code)) {
-            return new ErrorCodeEntity();
+        if (empty($code) && $status !== TransactionService::STATUS_ERROR) {
+            return new ErrorCodeModel();
         }
 
-        /** @var ErrorCodeModel $error */
-        $error = ErrorCodeModel::whereCode($code)
+        /** @var ErrorCodeModel|null $error */
+        $error = ErrorCodeModel::whereErrorCode($code)
             ->first();
 
-        if (empty($error->message)) {
-            return new ErrorCodeEntity(
-                'unknown',
-                'Unknown error'
-            );
+        if (empty($error->error_message)) {
+            $error = new ErrorCodeModel();
+            $error->error_code = 'unknown';
+            $error->error_message = 'Unknown error';
         }
 
-        return new ErrorCodeEntity(
-            $error->code,
-            $error->message
-        );
+        return $error;
     }
 }

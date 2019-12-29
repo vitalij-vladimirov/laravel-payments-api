@@ -2,10 +2,9 @@
 
 namespace App\Repositories;
 
-use App\Entities\TransactionEntity;
 use App\Models\TransactionModel;
 use App\Services\TransactionService;
-use Exception;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * Class TransactionRepository
@@ -14,18 +13,18 @@ use Exception;
 class TransactionRepository
 {
     const ALLOWED_STATUS_CHANGING = [
-        TransactionService::STATUS_APPROVED   => [
+        TransactionService::STATUS_CONFIRMED   => [
             TransactionService::STATUS_RECEIVED,
         ],
         TransactionService::STATUS_SUBMITTED  => [
-            TransactionService::STATUS_APPROVED,
+            TransactionService::STATUS_CONFIRMED,
         ],
         TransactionService::STATUS_COMPLETED  => [
             TransactionService::STATUS_SUBMITTED,
         ],
         TransactionService::STATUS_ERROR  => [
             TransactionService::STATUS_RECEIVED,
-            TransactionService::STATUS_APPROVED,
+            TransactionService::STATUS_CONFIRMED,
             TransactionService::STATUS_SUBMITTED,
         ]
     ];
@@ -36,7 +35,7 @@ class TransactionRepository
      * @param string|null $currency
      * @return float
      */
-    public static function getTransactionsAmountPerUser(
+    public function getTransactionsAmountPerUser(
         int $userId,
         ?int $interval,
         string $currency = null
@@ -52,10 +51,10 @@ class TransactionRepository
             $query->where('currency', $currency);
         }
 
-        $sum = $query->selectRaw('sum(amount + fee) as sum')
+        $totalAmount = $query->selectRaw('sum(amount + fee) as sum')
             ->first();
 
-        return $sum->sum ?? 0;
+        return $totalAmount->sum ?? 0;
     }
 
     /**
@@ -63,7 +62,7 @@ class TransactionRepository
      * @param int|null $interval
      * @return int
      */
-    public static function getTransactionsCountPerUser(int $userId, int $interval = null): int
+    public function getTransactionsCountPerUser(int $userId, int $interval = null): int
     {
         $query = TransactionModel::whereUserId($userId)
             ->where('status', '<>', TransactionService::STATUS_ERROR);
@@ -76,103 +75,56 @@ class TransactionRepository
     }
 
     /**
-     * @param array $input
-     * @return int|null
-     */
-    public static function insertTransaction(array $input): ?int
-    {
-        try {
-            return TransactionModel::insertGetId($input);
-        } catch (Exception $exception) {
-            return null;
-        }
-    }
-
-    /**
      * @param int $transactionId
-     * @param int $userId
      * @param string $status
      * @return bool
      */
-    public static function updateTransactionStatus(
-        int $transactionId,
-        int $userId,
-        string $status
-    ): bool {
+    public function updateTransactionStatus(int $transactionId, string $status): bool
+    {
         return TransactionModel::whereId($transactionId)
-            ->where('user_id', $userId)
             ->whereIn('status', self::ALLOWED_STATUS_CHANGING[$status])
-            ->limit(1)
             ->update(['status' => $status]);
     }
 
     /**
      * @param int $transactionId
      * @param array $update
+     * @return bool
      */
-    public static function updateTransaction(int $transactionId, array $update)
+    public function updateTransaction(int $transactionId, array $update): bool
     {
-        TransactionModel::whereId($transactionId)
-            ->update($update);
+        $updateQuery = TransactionModel::whereId($transactionId);
+
+        // Add extra query check in case if status is changing
+        if (isset($update['status'])) {
+            /** @var string $newStatus */
+            $newStatus = $update['status'];
+
+            $updateQuery->whereIn('status', self::ALLOWED_STATUS_CHANGING[$newStatus]);
+        }
+
+        return $updateQuery->update($update);
     }
 
-    public static function getTransaction($transactionId): TransactionEntity
+    /**
+     * @param int $transactionId
+     * @return TransactionModel|null
+     */
+    public function getTransaction(int $transactionId): ?TransactionModel
     {
         /** @var TransactionModel $transaction */
         $transaction = TransactionModel::whereId($transactionId)
             ->first();
 
-        return new TransactionEntity(
-            $transaction->id,
-            $transaction->user_id,
-            $transaction->details,
-            $transaction->receiver_account,
-            $transaction->receiver_name,
-            $transaction->amount,
-            $transaction->fee,
-            $transaction->currency,
-            $transaction->status,
-            $transaction->provider_id,
-            $transaction->provider_trn_id,
-            ErrorCodeRepository::getError($transaction->error_code)->code,
-            ErrorCodeRepository::getError($transaction->error_code)->message
-        );
+        return $transaction;
     }
 
     /**
-     * @return TransactionEntity[]
+     * @return Collection
      */
-    public static function getApprovedTransactions(): array
+    public function getConfirmedTransactions(): Collection
     {
-        /** @var TransactionModel[] $transaction */
-        $query = TransactionModel::whereStatus(TransactionService::STATUS_APPROVED)
+        return TransactionModel::whereStatus(TransactionService::STATUS_CONFIRMED)
             ->get();
-
-        if (count($query) === 0) {
-            return [];
-        }
-
-        /** @var TransactionEntity[] $transactions */
-        $transactions = [];
-
-        foreach ($query as $transaction) {
-            $transactions[] = new TransactionEntity(
-                $transaction->id,
-                $transaction->user_id,
-                $transaction->details,
-                $transaction->receiver_account,
-                $transaction->receiver_name,
-                $transaction->amount,
-                $transaction->fee,
-                $transaction->currency,
-                $transaction->status,
-                $transaction->provider_id,
-                $transaction->provider_trn_id,
-                ErrorCodeRepository::getError($transaction->error_code)->code,
-                ErrorCodeRepository::getError($transaction->error_code)->message
-            );
-        }
-
-        return $transactions;
     }
 }

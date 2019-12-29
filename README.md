@@ -16,18 +16,18 @@ For next launches type `docker-compose up -d` to run App in background. Full lau
 Short API documentation
 ---
 #### Set transaction
-URL: http://localhost:801/api/transaction
+URL: `http://localhost:801/api/transaction`
 
-Method: POST
+Method: `POST`
 
 ```
 Request:
 {
-    "user_id": 2,
-    "details": "Transaction number two",
-    "receiver_account": "LT165134865135165135106",
-    "receiver_name": "Someone Somewhere",
-    "amount": 900,
+    "user_id": 1,
+    "details": "Test transaction",
+    "receiver_account": "LT000000000000000001",
+    "receiver_name": "John Doe",
+    "amount": 100,
     "currency": "eur"
  }
 ```
@@ -36,28 +36,34 @@ Request:
 Response:
 {
     "transaction_id": 1,
-    "details": "Transaction number two",
-    "receiver_account": "LT165134865135165135106",
-    "receiver_name": "Someone Somewhere",
-    "amount": 900,
-    "fee": 90,
+    "details": "Test transaction",
+    "receiver_account": "LT000000000000000001",
+    "receiver_name": "John Doe",
+    "amount": 100,
+    "fee": 10,
     "currency": "eur",
     "status": "received",
     "error_code": null,
     "error_message": null
 }
 ```
+
+```
+Critical error Response:
+{
+    "error_code": "bad_input",
+    "error_message": "Bad input data"
+}
+```
 ---
 #### Submit (approve) transaction
-URL: http://localhost:801/api/transaction
+URL: `http://localhost:801/api/transaction/{transaction_id}/confirm`
 
-Method: PUT
+Method: `POST`
 
 ```
 Request:
 {
-    "user_id": 2,
-    "transaction_id": 1,
     "code": 111
 }
 ```
@@ -66,36 +72,42 @@ Request:
 Response:
 {
     "transaction_id": 1,
-    "details": "Transaction number two",
-    "receiver_account": "LT165134865135165135106",
-    "receiver_name": "Someone Somewhere",
-    "amount": 900,
-    "fee": 90,
+    "details": "Test transaction",
+    "receiver_account": "LT000000000000000001",
+    "receiver_name": "John Doe",
+    "amount": 100,
+    "fee": 10,
     "currency": "eur",
-    "status": "approved",
+    "status": "confirmed",
     "error_code": null,
     "error_message": null
 }
 ```
 ---
 #### Get transaction
-URL: http://localhost:801/api/transaction/100 - transaction id
+URL: `http://localhost:801/api/transaction/{transaction_id}`
 
-Method: GET
+Method: `GET`
 ```
 Response:
 {
-    "transaction_id": 100,
-    "details": "Transaction number two",
-    "receiver_account": "LT165134865135165135106",
-    "receiver_name": "Someone Somewhere",
-    "amount": 900,
-    "fee": 90,
+    "transaction_id": 1,
+    "details": "Test transaction",
+    "receiver_account": "LT000000000000000001",
+    "receiver_name": "John Doe",
+    "amount": 100,
+    "fee": 10,
     "currency": "eur",
-    "status": "approved",
+    "status": "completed",
     "error_code": null,
     "error_message": null
 }
 ```
 
 Postman Examples included to project as `Kernolab.postman_collection.json`.
+
+---
+PhpUnit testing
+---
+1. `docker exec -it kernolab bash` - login to docker container
+2. `vendor/bin/phpunit` - run Features tests

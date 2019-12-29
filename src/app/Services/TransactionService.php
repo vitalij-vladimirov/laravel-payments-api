@@ -2,11 +2,15 @@
 
 namespace App\Services;
 
-use App\Entities\ErrorCodeEntity;
-use App\Entities\TransactionInputEntity;
-use App\Entities\TransactionEntity;
+use App\Models\ErrorCodeModel;
+use App\Models\ProviderModel;
+use App\Models\TransactionModel;
 use App\Repositories\ErrorCodeRepository;
+use App\Repositories\ProviderRepository;
 use App\Repositories\TransactionRepository;
+use App\Services\Providers\ProviderInterface;
+use Illuminate\Support\Facades\Validator;
+use App;
 
 /**
  * Class TransactionService
@@ -14,11 +18,11 @@ use App\Repositories\TransactionRepository;
  */
 class TransactionService
 {
-    const STATUS_RECEIVED   = 'RECEIVED';   // Transaction received from user
-    const STATUS_APPROVED   = 'APPROVED';   // Transaction approved by user
-    const STATUS_SUBMITTED  = 'SUBMITTED';  // Transaction submitted to provider
-    const STATUS_COMPLETED  = 'COMPLETED';  // Transaction completed
-    const STATUS_ERROR      = 'ERROR';      // Transaction terminate with error message
+    const STATUS_RECEIVED   = 'received';   // Transaction received from user
+    const STATUS_CONFIRMED  = 'confirmed';  // Transaction confirmed by user
+    const STATUS_SUBMITTED  = 'submitted';  // Transaction submitted to provider
+    const STATUS_COMPLETED  = 'completed';  // Transaction completed
+    const STATUS_ERROR      = 'error';      // Transaction terminate with error message
 
     const TRN_MAX           = 10;           // Max transactions per TRN_TIME_LIMIT
     const TRN_TIME_LIMIT    = 60;           // Time to limit TRN_MAX (minutes)
@@ -36,83 +40,121 @@ class TransactionService
     const ERROR_BAD_AUTHENTICATION  = 'bad_authentication';
     const ERROR_NOT_FOUND           = 'not_found';
 
+    private TransactionRepository $transactionRepository;
+    private ErrorCodeRepository $errorCodeRepository;
+    private ProviderRepository $providerRepository;
+
     /**
-     * @param TransactionInputEntity $transactionInput
-     * @param int|null $provider
-     * @return TransactionEntity
+     * TransactionService constructor.
+     * @param TransactionRepository $transactionRepository
+     * @param ErrorCodeRepository $errorCodeRepository
+     * @param ProviderRepository $providerRepository
      */
-    public function setTransaction(TransactionInputEntity $transactionInput, ?int $provider): TransactionEntity
+    public function __construct(
+        TransactionRepository $transactionRepository,
+        ErrorCodeRepository $errorCodeRepository,
+        ProviderRepository $providerRepository
+    ) {
+        $this->transactionRepository = $transactionRepository;
+        $this->errorCodeRepository = $errorCodeRepository;
+        $this->providerRepository = $providerRepository;
+    }
+
+    /**
+     * @param array $input
+     * @return TransactionModel
+     */
+    public function saveTransaction(array $input): TransactionModel
     {
-        /** @var float $fee */
-        $fee = (float) number_format($transactionInput->amount * $this->getFee($transactionInput->userId), 2, '.', ',');
+        /** @var TransactionModel $transaction */
+        $transaction = new TransactionModel();
 
-        /** @var float $totalTransactionAmount */
-        $totalTransactionAmount = $transactionInput->amount + $fee;
+        $transaction->user_id = $input['user_id'];
+        $transaction->details = $input['details'];
+        $transaction->receiver_account = $input['receiver_account'];
+        $transaction->receiver_name = $input['receiver_name'];
+        $transaction->amount = $input['amount'];
+        $transaction->currency = $input['currency'];
+        $transaction->provider_id = $this->findProvider($transaction);
+        $transaction->fee = $this->countFee($transaction);
+        $transaction->error_code = $this->checkForErrors($transaction);
+        $transaction->status = empty($transaction->error_code) ? self::STATUS_RECEIVED : self::STATUS_ERROR;
 
-        /** @var TransactionEntity $transaction */
-        $transaction = new TransactionEntity(
-            null,
-            $transactionInput->userId,
-            $transactionInput->details,
-            $transactionInput->receiverAccount,
-            $transactionInput->receiverName,
-            $transactionInput->amount,
-            $fee,
-            strtolower($transactionInput->currency),
-            self::STATUS_RECEIVED,
-            $provider
-        );
-
-        /** @var ErrorCodeEntity|null $error */
-        $error = null;
-
-        if (empty($provider)) {
-            $error = ErrorCodeRepository::getError(self::ERROR_PROVIDER_NOT_FOUND);
-        } elseif (
-            $this->totalAmountLimitReached(
-                $transaction->userId,
-                $totalTransactionAmount,
-                $transactionInput->currency
-            )
-        ) {
-            $error = ErrorCodeRepository::getError(self::ERROR_TOTAL_LIMIT);
-        } elseif ($this->hourlyLimitReached($transaction->userId)) {
-            $error = ErrorCodeRepository::getError(self::ERROR_HOUR_LIMIT);
-        }
-
-        if (!empty($error)) {
-            $transaction->status = self::STATUS_ERROR;
-            $transaction->errorCode = $error->code;
-            $transaction->errorMessage = $error->message;
-        }
+        $transaction->save();
 
         return $transaction;
     }
 
-    public function processApprovedTransactions()
+    /**
+     * @param array $transaction
+     * @return bool
+     */
+    public function transactionIsValid(array $transaction): bool
     {
-        /** @var TransactionEntity[] $approvedTransactions */
-        $approvedTransactions = TransactionRepository::getApprovedTransactions();
+        /** @var array $transactionValidation */
+        $transactionValidation = [
+            'user_id'           => 'required|integer|min:1',
+            'details'           => 'required|string|min:1|max:255',
+            'receiver_account'  => 'required|alpha_num|min:20|max:34',
+            'receiver_name'     => 'required|string|min:1|max:255',
+            'amount'            => 'required|numeric|min:0.01',
+            'currency'          => 'required|alpha|min:3|max:3',
+        ];
+
+        $validate = Validator::make($transaction, $transactionValidation);
+
+        return $validate->passes();
+    }
+
+    /**
+     * @param TransactionModel $transaction
+     * @return array
+     */
+    public function createTransactionResponse(TransactionModel $transaction): array
+    {
+        /** @var ErrorCodeModel $error */
+        $error = $this->errorCodeRepository->getError($transaction->error_code, $transaction->status);
+
+        /** @var array $response */
+        $response = [
+            'transaction_id'    => $transaction->id,
+            'details'           => $transaction->details,
+            'receiver_account'  => $transaction->receiver_account,
+            'receiver_name'     => $transaction->receiver_name,
+            'amount'            => $transaction->amount,
+            'fee'               => $transaction->fee,
+            'currency'          => $transaction->currency,
+            'status'            => $transaction->status,
+            'error_code'        => $error->error_code,
+            'error_message'     => $error->error_message
+        ];
+
+        return $response;
+    }
+
+    public function processConfirmedTransactions(): void
+    {
+        /** @var TransactionModel[] $approvedTransactions */
+        $approvedTransactions = $this->transactionRepository->getConfirmedTransactions();
 
         if(count($approvedTransactions) === 0) {
             return;
         }
 
-        /** @var ProviderService $providerService */
-        $providerService = new ProviderService();
-
         foreach ($approvedTransactions as $transaction) {
-            TransactionRepository::updateTransactionStatus(
+            $this->transactionRepository->updateTransactionStatus(
                 $transaction->id,
-                $transaction->userId,
                 self::STATUS_SUBMITTED
             );
 
-            /** @var string|null $providerTransactionId */
-            $providerTransactionId = $providerService->processTransaction($transaction);
+            /** @var ProviderModel $provider */
+            $provider = $this->providerRepository->getProviderById(
+                $transaction->provider_id,
+                ProviderInterface::STATUS_ACTIVE
+            );
 
-            if (empty($providerTransactionId)) {
-                TransactionRepository::updateTransaction($transaction->id, [
+            if (empty($provider)) {
+                $this->transactionRepository->updateTransaction($transaction->id, [
                     'error_code' => self::ERROR_PROVIDER_NOT_FOUND,
                     'status' => self::STATUS_ERROR
                 ]);
@@ -120,7 +162,10 @@ class TransactionService
                 continue;
             }
 
-            TransactionRepository::updateTransaction($transaction->id, [
+            /** @var string|null $providerTransactionId */
+            $providerTransactionId = $this->processTransactionToProvider($transaction, $provider);
+
+            $this->transactionRepository->updateTransaction($transaction->id, [
                 'provider_trn_id' => $providerTransactionId,
                 'status' => self::STATUS_COMPLETED
             ]);
@@ -128,39 +173,87 @@ class TransactionService
     }
 
     /**
-     * @param int $userId
+     * @param TransactionModel $transaction
+     * @return int|null
+     */
+    private function findProvider(TransactionModel $transaction): ?int
+    {
+        switch (strtolower($transaction->currency)) {
+            case 'eur':
+                $provider = $this->providerRepository->getProviderByKey(
+                    ProviderInterface::EUR_PROVIDER,
+                    ProviderInterface::STATUS_ACTIVE
+                );
+                break;
+            default:
+                $provider = $this->providerRepository->getProviderByKey(
+                    ProviderInterface::NON_EUR_PROVIDER,
+                    ProviderInterface::STATUS_ACTIVE
+                );
+        }
+
+        return $provider->id ?? null;
+    }
+
+    /**
+     * @param TransactionModel $transaction
      * @return float
      */
-    private function getFee(int $userId): float
+    private function countFee(TransactionModel $transaction): float
     {
         /** @var float $dailyAmountSum */
-        $dailyAmountSum = TransactionRepository::getTransactionsAmountPerUser(
-            $userId,
+        $dailyAmountSum = $this->transactionRepository->getTransactionsAmountPerUser(
+            $transaction->user_id,
             self::TRN_FEE_PERIOD
         );
 
+        /** @var float $feePercentage */
+        $feePercentage = ($dailyAmountSum < self::TRN_FEE_1_SWITCH) ? self::TRN_FEE_1 : self::TRN_FEE_2;
+
         /** @var float $fee */
-        $fee = ($dailyAmountSum < self::TRN_FEE_1_SWITCH) ? self::TRN_FEE_1 : self::TRN_FEE_2;
+        $fee = (float) number_format($transaction->amount * $feePercentage, 2, '.', ',');
 
         return $fee;
     }
 
     /**
-     * @param int $userId
-     * @param float $transactionAmount
-     * @param string $currency
+     * @param TransactionModel $transaction
+     * @return string|null
+     */
+    private function checkForErrors(TransactionModel $transaction): ?string
+    {
+        if (empty($transaction->provider_id)) {
+            return $this->errorCodeRepository->getError(self::ERROR_PROVIDER_NOT_FOUND)->error_code;
+        }
+
+        if ($this->totalAmountLimitReached($transaction)) {
+            return $this->errorCodeRepository->getError(self::ERROR_TOTAL_LIMIT)->error_code;
+        }
+
+        if ($this->hourlyLimitReached($transaction->user_id)) {
+            return $this->errorCodeRepository->getError(self::ERROR_HOUR_LIMIT)->error_code;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param TransactionModel $transaction
      * @return bool
      */
-    private function totalAmountLimitReached(int $userId, float $transactionAmount, string $currency): bool
+    private function totalAmountLimitReached(TransactionModel $transaction): bool
     {
-        /** @var float $totalAmountSum */
-        $totalAmountSum = TransactionRepository::getTransactionsAmountPerUser(
-            $userId,
+        /** @var float $totalAmount */
+        $totalAmount = $this->transactionRepository->getTransactionsAmountPerUser(
+            $transaction->user_id,
             null,
-            $currency
+            $transaction->currency
         );
 
-        return ($totalAmountSum + $transactionAmount) > self::TRN_TOTAL_LIMIT;
+        /** @var float $totalAmountSum */
+        $totalAmountSum = $totalAmount + $transaction->amount + $transaction->fee;
+
+        return $totalAmountSum > self::TRN_TOTAL_LIMIT;
     }
 
     /**
@@ -170,11 +263,31 @@ class TransactionService
     private function hourlyLimitReached(int $userId): bool
     {
         /** @var float $totalTransactionsCount */
-        $lastHourTransactionsCount = TransactionRepository::getTransactionsCountPerUser(
+        $lastHourTransactionsCount = $this->transactionRepository->getTransactionsCountPerUser(
             $userId,
             self::TRN_TIME_LIMIT
         );
 
         return $lastHourTransactionsCount >= self::TRN_MAX;
+    }
+
+    /**
+     * @param TransactionModel $transaction
+     * @param ProviderModel $provider
+     * @return string
+     */
+    private function processTransactionToProvider(
+        TransactionModel $transaction,
+        ProviderModel $provider
+    ): string {
+        App::bind('ProviderInterface', 'App\Services\Providers\\' . $provider->provider_key . 'Service');
+
+        /** @var ProviderInterface $providerInterface */
+        $providerInterface = App::make('ProviderInterface');
+
+        /** @var string|null $providerTransactionId */
+        $providerTransactionId = $providerInterface->processTransaction($transaction);
+
+        return $providerTransactionId;
     }
 }

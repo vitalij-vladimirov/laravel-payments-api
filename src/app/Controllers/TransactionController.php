@@ -2,17 +2,13 @@
 
 namespace App\Controllers;
 
-use App\Entities\TransactionInputEntity;
-use App\Entities\TransactionEntity;
-use App\Helpers\TransactionHelper;
+use App\Models\TransactionModel;
 use App\Repositories\ErrorCodeRepository;
 use App\Repositories\TransactionRepository;
 use App\Services\AuthenticationService;
-use App\Services\ProviderService;
 use App\Services\TransactionService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Exception;
 
 /**
  * Class TransactionController
@@ -20,103 +16,86 @@ use Exception;
  */
 class TransactionController extends Controller
 {
+    private Request $request;
     private TransactionService $transactionService;
-    private ProviderService $providerService;
+    private AuthenticationService $authenticationService;
+    private TransactionRepository $transactionRepository;
+    private ErrorCodeRepository $errorCodeRepository;
 
     /**
      * TransactionController constructor.
+     * @param Request $request
+     * @param TransactionService $transactionService
+     * @param AuthenticationService $authenticationService
+     * @param TransactionRepository $transactionRepository
+     * @param ErrorCodeRepository $errorCodeRepository
      */
-    public function __construct()
-    {
-        $this->transactionService = new TransactionService();
-        $this->providerService = new ProviderService();
+    public function __construct(
+        Request $request,
+        TransactionService $transactionService,
+        AuthenticationService $authenticationService,
+        TransactionRepository $transactionRepository,
+        ErrorCodeRepository $errorCodeRepository
+    ) {
+        $this->request = $request;
+        $this->transactionService = $transactionService;
+        $this->authenticationService = $authenticationService;
+        $this->transactionRepository = $transactionRepository;
+        $this->errorCodeRepository = $errorCodeRepository;
     }
 
     /**
-     * @param Request $input
      * @return JsonResponse
      */
-    public function setTransaction(Request $input): JsonResponse
+    public function createTransaction(): JsonResponse
     {
-        try {
-            // Set input data to Entity
-            $transactionInput = new TransactionInputEntity($input->post());
-        } catch (Exception $exception) {
-            // Return error if input data is bad
-            return response()->json([
-                    'error' => ErrorCodeRepository::getError(TransactionService::ERROR_BAD_INPUT)
-                        ->message
-                ])
-                ->setStatusCode(400);
+        /** @var array $input */
+        $input = $this->request->post();
+
+        // Check if transaction data is correct
+        if(!$this->transactionService->transactionIsValid($input)) {
+            return response()->json($this->errorCodeRepository->getError(TransactionService::ERROR_BAD_INPUT));
         }
 
-        /** @var int|null $provider */
-        $provider = $this->providerService->findProvider($transactionInput);
-
-        /** @var TransactionEntity $transaction */
-        $transaction = $this->transactionService->setTransaction($transactionInput, $provider);
-
-        /** @var array $insert */
-        $insert = TransactionHelper::convertEntityToInsert($transaction);
-
-        $transaction->id = TransactionRepository::insertTransaction($insert);
-
-        if (empty($transaction->id)) {
-            // Return error if data could not be saved to DB
-            return response()->json([
-                    'error' => ErrorCodeRepository::getError(TransactionService::ERROR_BAD_INPUT)
-                        ->message
-                ])
-                ->setStatusCode(400);
-        }
+        /** @var TransactionModel $transaction */
+        $transaction = $this->transactionService->saveTransaction($input);
 
         /** @var array $output */
-        $output = TransactionHelper::convertEntityToResponse($transaction);
+        $output = $this->transactionService->createTransactionResponse($transaction);
 
         return response()->json($output);
     }
 
-    public function submitTransaction(Request $input): JsonResponse
+    /**
+     * @param int $transactionId
+     * @return JsonResponse
+     */
+    public function confirmTransaction(int $transactionId): JsonResponse
     {
-        /** @var int $userId */
-        $userId = $input->post('user_id');
-
-        /** @var int $transactionId */
-        $transactionId = $input->post('transaction_id');
-
         /** @var int $code */
-        $code = $input->post('code');
+        $code = $this->request->post('code');
 
-        if (!AuthenticationService::authenticateTransaction($userId, $code)) {
+        if (!$this->authenticationService->authenticateTransaction($code)) {
             // Return error on bad authentication
-            return response()->json([
-                    'error' => ErrorCodeRepository::getError(TransactionService::ERROR_BAD_AUTHENTICATION)
-                        ->message
-                ])
-                ->setStatusCode(400);
+            return response()->json($this->errorCodeRepository->getError(TransactionService::ERROR_BAD_AUTHENTICATION));
         }
 
         /** @var bool $update */
-        $update = TransactionRepository::updateTransactionStatus(
+        $update = $this->transactionRepository->updateTransactionStatus(
             $transactionId,
-            $userId,
-            TransactionService::STATUS_APPROVED
+            TransactionService::STATUS_CONFIRMED
         );
 
         if (!$update) {
             // Return error if transaction status was not updated
-            return response()->json([
-                    'error' => ErrorCodeRepository::getError(TransactionService::ERROR_NOT_FOUND)
-                        ->message
-                ])
-                ->setStatusCode(404);
+            return response()->json($this->errorCodeRepository->getError(TransactionService::ERROR_NOT_FOUND));
         }
 
-        /** @var TransactionEntity $transaction */
-        $transaction = TransactionRepository::getTransaction($transactionId);
+        /** @var TransactionModel $transaction */
+        $transaction = $this->transactionRepository->getTransaction($transactionId);
 
         /** @var array $output */
-        $output = TransactionHelper::convertEntityToResponse($transaction);
+        $output = $this->transactionService->createTransactionResponse($transaction);
 
         return response()->json($output);
     }
@@ -127,20 +106,15 @@ class TransactionController extends Controller
      */
     public function getTransaction(int $transactionId): JsonResponse
     {
-        try {
-            /** @var TransactionEntity $transaction */
-            $transaction = TransactionRepository::getTransaction($transactionId);
-        } catch (Exception $exception) {
-            // Return error if transaction status was not updated
-            return response()->json([
-                    'error' => ErrorCodeRepository::getError(TransactionService::ERROR_NOT_FOUND)
-                        ->message
-                ])
-                ->setStatusCode(404);
+        /** @var TransactionModel $transaction */
+        $transaction = $this->transactionRepository->getTransaction($transactionId);
+
+        if (empty($transaction)) {
+            return response()->json($this->errorCodeRepository->getError(TransactionService::ERROR_NOT_FOUND));
         }
 
         /** @var array $output */
-        $output = TransactionHelper::convertEntityToResponse($transaction);
+        $output = $this->transactionService->createTransactionResponse($transaction);
 
         return response()->json($output);
     }

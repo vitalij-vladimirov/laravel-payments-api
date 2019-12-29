@@ -11,7 +11,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run()
     {
-        if (config('app.env') === 'development') {
+        if (config('app.env') !== 'production') {
             $this->call(ProviderSeeder::class);
             $this->call(ErrorCodeSeeder::class);
         }

@@ -52,4 +52,21 @@ class TransactionModel extends Model
      * @var bool
      */
     public $timestamps = true;
+
+    /**
+     * @var string[]
+     */
+    protected $fillable = [
+        'user_id',
+        'details',
+        'receiver_account',
+        'receiver_name',
+        'amount',
+        'fee',
+        'currency',
+        'provider_id',
+        'provider_trn_id',
+        'status',
+        'error_code',
+    ];
 }

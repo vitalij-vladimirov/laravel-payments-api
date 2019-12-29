@@ -13,11 +13,11 @@ class ProviderSeeder extends Seeder
     {
         DB::table('provider')->insertOrIgnore([
             [
-                'provider_key' => 'megacash',
-                'title' => 'Megacash',
+                'provider_key' => 'Megacash',
+                'title' => 'Megacash Bank',
             ],[
-                'provider_key' => 'supermoney',
-                'title' => 'Supermoney',
+                'provider_key' => 'Supermoney',
+                'title' => 'Supermoney FinTech',
             ]
         ]);
     }
