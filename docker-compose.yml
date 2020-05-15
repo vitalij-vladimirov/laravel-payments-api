@@ -1,13 +1,13 @@
 version: '3.7'
 services:
-  kernolab:
-    container_name: kernolab
+  payment-api:
+    container_name: payment-api
     build:
       context: '.'
       args:
       - APP_ENV=development
       - COMPOSER_NO_INTERACTION=0
-    image: kernolab
+    image: payment-api
     ports:
     - 801:80
     volumes:
@@ -16,11 +16,11 @@ services:
     - LOG_STDOUT=/dev/null
     - LOG_STDERR=/dev/null
     command: bash -c "composer update --lock --prefer-source && supervisord"
-  kernolab-db:
+  payment-api-db:
     image: mysql:5.7
-    container_name: kernolab-db
+    container_name: payment-api-db
     environment:
-      MYSQL_DATABASE: kernolab
+      MYSQL_DATABASE: payment_api
       MYSQL_PASSWORD: root
       MYSQL_ROOT_PASSWORD: root
       TZ: UTC
@@ -28,3 +28,4 @@ services:
       - 33061:3306
     volumes:
       - ./mysql:/var/lib/mysql:rw
+    command: "--innodb_use_native_aio=0"

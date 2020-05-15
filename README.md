@@ -2,7 +2,7 @@
 First launch
 ---
 1. `docker-compose up` - App will launch and install all dependencies, it may take from 5 to 15 min. depending on you PC speed.
-2. `docker exec -it kernolab bash` - login to docker container
+2. `docker exec -it payment-api bash` - login to docker container
 3. `php artisan migrate` - create database tables
 4. `php artisan db:seed` - create default database values
 5. `exit`
@@ -104,10 +104,10 @@ Response:
 }
 ```
 
-Postman Examples included to project as `Kernolab.postman_collection.json`.
+Postman Examples included to project as `payment_api_task.postman_collection.json`.
 
 ---
 PhpUnit testing
 ---
-1. `docker exec -it kernolab bash` - login to docker container
+1. `docker exec -it payment-api bash` - login to docker container
 2. `vendor/bin/phpunit` - run Features tests
